@@ -738,7 +738,7 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
                               placeholder="e.g. App dashboard walkthrough"
                               value={insertAlt}
                               onChange={(e) => setInsertAlt(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100"
                             />
                             <p className="text-[9px] text-slate-400 font-sans leading-tight">
                               Uploading automatically recompresses the image, making it highly compact for instant reads and safe storage.
@@ -756,7 +756,7 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
                               placeholder="App screen interface"
                               value={insertAlt}
                               onChange={(e) => setInsertAlt(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100"
                             />
                           </div>
                           
@@ -769,7 +769,7 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
                               placeholder="https://images.unsplash.com/..."
                               value={insertUrl}
                               onChange={(e) => setInsertUrl(e.target.value)}
-                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-505 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100"
                             />
                           </div>
 

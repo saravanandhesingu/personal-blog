@@ -73,7 +73,7 @@ export default function Header({
                 placeholder="Search articles, tags, titles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pr-4 pl-9 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500/50 focus:bg-white focus:ring-1 focus:ring-indigo-500/50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-105 dark:focus:border-indigo-500/50 dark:focus:bg-[#0f172a] transition-all font-sans"
+                className="w-full rounded-full border border-slate-200 bg-slate-50 py-1.5 pr-4 pl-9 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500/50 focus:bg-white focus:ring-1 focus:ring-indigo-500/50 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-500/50 dark:focus:bg-[#0f172a] transition-all font-sans"
               />
               {searchQuery && (
                 <button
@@ -167,7 +167,7 @@ export default function Header({
               placeholder="Search articles, tags, titles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pr-4 pl-9 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500/50 focus:bg-white focus:ring-1 focus:ring-indigo-500/50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-500/50 dark:focus:bg-[#0f172a] transition-all font-sans"
+              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pr-4 pl-9 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500/50 focus:bg-white focus:ring-1 focus:ring-indigo-500/50 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-500/50 dark:focus:bg-[#0f172a] transition-all font-sans"
             />
             {searchQuery && (
               <button
