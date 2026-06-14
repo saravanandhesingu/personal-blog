@@ -36,6 +36,18 @@ export default function BlogCard({ post, onClick, isAuthor }: BlogCardProps) {
       className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-150 bg-white p-6 sm:p-8 hover:shadow-xl dark:border-slate-800/80 dark:bg-slate-900/35 dark:hover:bg-slate-900 dark:hover:border-slate-700/80 hover:shadow-slate-100/50 dark:hover:shadow-none hover:-translate-y-1 transition-all cursor-pointer"
     >
       <div>
+        {/* Cover Image Thumbnail if active */}
+        {post.coverImage && (
+          <div className="w-full h-40 sm:h-44 overflow-hidden rounded-xl mb-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80">
+            <img 
+              src={post.coverImage} 
+              alt={post.title} 
+              className="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-500"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        )}
+
         {/* Post Metadata Row */}
         <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-400 dark:text-slate-500 mb-4">
           <span className="flex items-center gap-1">

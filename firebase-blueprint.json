@@ -50,6 +50,10 @@
         "views": {
           "type": "integer",
           "description": "The cumulative number of views this post has received."
+        },
+        "coverImage": {
+          "type": "string",
+          "description": "The base64 encoded image string or absolute URL representing the cover banner."
         }
       },
       "required": [

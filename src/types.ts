@@ -16,6 +16,7 @@ export interface Post {
   readTime: string;
   authorEmail: string;
   views: number;
+  coverImage?: string; // Base64 string or absolute URL
 }
 
 export interface UserContextType {

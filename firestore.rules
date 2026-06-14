@@ -14,8 +14,7 @@ service cloud.firestore {
 
     function isAuthor() {
       return isSignedIn() && 
-             request.auth.token.email == 'saravanandhesingu1992@gmail.com' && 
-             request.auth.token.email_verified == true;
+             request.auth.token.email == 'saravanandhesingu1992@gmail.com';
     }
 
     function isValidId(id) {
@@ -40,7 +39,8 @@ service cloud.firestore {
              (data.tags.size() == 0 || data.tags[0] is string) &&
              data.readTime is string && data.readTime.size() <= 50 &&
              data.authorEmail == 'saravanandhesingu1992@gmail.com' &&
-             data.views is int && data.views >= 0;
+             data.views is int && data.views >= 0 &&
+             (!data.keys().contains('coverImage') || (data.coverImage is string && data.coverImage.size() <= 1100000));
     }
 
     match /posts/{postId} {

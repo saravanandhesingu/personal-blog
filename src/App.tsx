@@ -9,7 +9,7 @@ import {
   collection, query, where, getDocs, onSnapshot, writeBatch, doc, serverTimestamp, orderBy 
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { BookOpen, Search, ArrowRight, Sparkles, Feather, ShieldCheck, Heart, Github, Star, PenTool, LayoutGrid } from 'lucide-react';
+import { BookOpen, Search, ArrowRight, Sparkles, Feather, ShieldCheck, Heart, Github, Star, PenTool, LayoutGrid, ShieldAlert, X } from 'lucide-react';
 
 import { Post, UserContextType, OperationType } from './types';
 import { db, auth, loginWithGoogle, logoutUser, testConnection, handleFirestoreError } from './firebase';
@@ -30,6 +30,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [isAuthor, setIsAuthor] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [loginError, setLoginError] = useState<{ code?: string; message?: string } | null>(null);
 
   // Articles collection states
   const [posts, setPosts] = useState<Post[]>([]);
@@ -46,7 +47,7 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && currentUser.email === AUTHOR_EMAIL && currentUser.emailVerified) {
+      if (currentUser && currentUser.email === AUTHOR_EMAIL) {
         setIsAuthor(true);
       } else {
         setIsAuthor(false);
@@ -259,10 +260,15 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
 
   // Helper auth callback block
   const handleLogin = async () => {
+    setLoginError(null);
     try {
       await loginWithGoogle();
-    } catch (err) {
-      alert("Verification Login failed. Check your browser cookies or open in a new tab.");
+    } catch (err: any) {
+      console.error("Verification Login failed:", err);
+      setLoginError({
+        code: err?.code || 'unknown-error',
+        message: err?.message || 'Verification Login failed. Check your browser cookies or open in a new tab.'
+      });
     }
   };
 
@@ -433,6 +439,142 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
 
         </div>
       </footer>
+
+      {/* Login Error Diagnostic Modal */}
+      <AnimatePresence>
+        {loginError && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-lg overflow-hidden rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl dark:bg-slate-900 dark:border-slate-800 text-slate-800 dark:text-slate-100"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100">
+                    Authentication Verification Failure
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5 font-sans">
+                    We detected a block or configuration mismatch in your browser context.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLoginError(null)}
+                  className="rounded-full p-1 text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Error Technical Specs */}
+              <div className="mb-5 rounded-2xl bg-red-50/50 p-4 font-mono text-[11px] text-red-600 border border-red-100/50 dark:bg-red-950/10 dark:border-red-950/30 dark:text-red-350 text-left">
+                <div className="font-semibold text-[10px] uppercase tracking-wider text-red-700 dark:text-red-400 mb-1">
+                  Diagnostics Info ({loginError.code})
+                </div>
+                <div className="line-clamp-3 leading-relaxed break-words">
+                  {loginError.message}
+                </div>
+              </div>
+
+              {/* Actionable Remedies */}
+              <div className="space-y-4 text-left">
+                <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-slate-400">
+                  Troubleshooting Checklist
+                </h4>
+
+                <div className="space-y-3 text-xs leading-relaxed font-sans text-slate-600 dark:text-slate-350">
+                  {/* Step 1: Open in New Tab */}
+                  <div className="flex gap-3 items-start">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                      1
+                    </span>
+                    <div>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                        Browser Third-Party Cookie Blocking (Most Common)
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 mt-1 block font-sans">
+                        The live preview frame blocks cookies for popup authorization. Open the web application directly in a <strong>New Tab</strong> so the Google Sign-In popup can communicate auth sessions properly.
+                      </span>
+                      <a
+                        href={window.location.origin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 px-4 py-1.5 font-sans font-semibold text-white transition-all shadow-md shadow-indigo-500/15"
+                      >
+                        <span>Open App in New Tab</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Authorized Domains */}
+                  <div className="flex gap-3 items-start border-t border-slate-100 dark:border-slate-800/60 pt-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                      2
+                    </span>
+                    <div>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                        Authorized Domain Lock
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 block mt-1 font-sans">
+                        Ensure you authorized your dynamic app preview and hosting domains in your <strong>Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains</strong>. You must add both:
+                      </span>
+                      <div className="mt-1.5 flex flex-col gap-1.5">
+                        <code className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-950 text-[10px] font-mono font-semibold text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-800 select-all leading-tight break-all">
+                          saravanandhesingu-chronicle.netlify.app
+                        </code>
+                        <code className="inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-950 text-[10px] font-mono font-semibold text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-800 select-all leading-tight break-all">
+                          {window.location.hostname}
+                        </code>
+                        <span className="text-[10px] text-slate-400 italic font-mono block">
+                          (These are required for Google Auth to permit popup communications)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Enable Google Provider */}
+                  <div className="flex gap-3 items-start border-t border-slate-100 dark:border-slate-800/60 pt-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                      3
+                    </span>
+                    <div>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                        Activate Sign-In Provider
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 block mt-0.5 font-sans">
+                        Confirm that the <strong>Google provider</strong> is toggled to **Enabled** in the Sign-In Methods dashboard of your Firebase project.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="mt-6 flex justify-end border-t border-slate-100 dark:border-slate-800/60 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setLoginError(null)}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                >
+                  Close Diagnostics
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
