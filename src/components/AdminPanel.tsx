@@ -7,12 +7,53 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   PenTool, Eye, Save, Plus, Trash2, Edit2, Check, AlertCircle, FileText, Globe, 
-  Settings, Bold, Italic, Link, List, Quote, Code, RotateCcw, ListRestart
+  Settings, Bold, Italic, Link, List, Quote, Code, RotateCcw, ListRestart,
+  Image as ImageIcon, Upload, X, Link2, FileImage, Loader2
 } from 'lucide-react';
 import { Post, OperationType } from '../types';
 import { db, handleFirestoreError } from '../firebase';
 import { doc, setDoc, deleteDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore';
 import Markdown from 'react-markdown';
+
+// Compress, resize and convert an image file to Base64 JPEG string
+const compressAndResizeImage = (file: File, maxWidth = 1000, quality = 0.75): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Scale down if width exceeds maxWidth
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string); // Fallback to original Base64 if 2D context fails
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Export to JPEG with quality compression (JPEG is much more size-efficient than PNG)
+        const output = canvas.toDataURL('image/jpeg', quality);
+        resolve(output);
+      };
+      img.onerror = () => reject(new Error('Failed to load image element.'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
+};
 
 interface AdminPanelProps {
   posts: Post[];
@@ -31,6 +72,16 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
   const [published, setPublished] = useState(true);
   const [tagsInput, setTagsInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  
+  // Image Upload and Link States
+  const [coverImage, setCoverImage] = useState('');
+  const [showImgInserter, setShowImgInserter] = useState(false);
+  const [insertAlt, setInsertAlt] = useState('');
+  const [insertUrl, setInsertUrl] = useState('');
+  const [inlineLoading, setInlineLoading] = useState(false);
+  const [coverLoading, setCoverLoading] = useState(false);
+  const [imageTab, setImageTab] = useState<'upload' | 'url'>('upload');
+  const [imageError, setImageError] = useState<string | null>(null);
   
   // UI Interaction States
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
@@ -67,6 +118,9 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
     setTagsInput('');
     setActiveTab('write');
     setStatusMessage(null);
+    setCoverImage('');
+    setShowImgInserter(false);
+    setImageError(null);
   };
 
   const handleEdit = (post: Post) => {
@@ -80,6 +134,9 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
     setTagsInput('');
     setActiveTab('write');
     setStatusMessage(null);
+    setCoverImage(post.coverImage || '');
+    setShowImgInserter(false);
+    setImageError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -148,6 +205,78 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
     }, 50);
   };
 
+  const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("Image file is too large (must be under 8MB).");
+      return;
+    }
+
+    setCoverLoading(true);
+    setImageError(null);
+    try {
+      const base64 = await compressAndResizeImage(file, 900, 0.70);
+      setCoverImage(base64);
+    } catch (err: any) {
+      console.error(err);
+      setImageError(err.message || "Failed to process the cover image.");
+    } finally {
+      setCoverLoading(false);
+    }
+  };
+
+  const handleInlineImageInsertChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("Image must be under 8MB.");
+      return;
+    }
+
+    setInlineLoading(true);
+    setImageError(null);
+    try {
+      const base64 = await compressAndResizeImage(file, 800, 0.65);
+      insertIntoMarkdown(base64, file.name.split('.')[0] || "screenshot");
+    } catch (err: any) {
+      console.error(err);
+      setImageError(err.message || "Failed to process the inline screenshot.");
+    } finally {
+      setInlineLoading(false);
+    }
+  };
+
+  const insertIntoMarkdown = (urlOrBase64: string, altText: string) => {
+    const textarea = document.getElementById('content-editor-textarea') as HTMLTextAreaElement;
+    if (!textarea) {
+      setContent(prev => prev + `\n![${altText || 'screenshot'}](${urlOrBase64})\n`);
+      setShowImgInserter(false);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const replacement = `\n![${altText || 'screenshot'}](${urlOrBase64})\n`;
+
+    const valueWithReplacement = text.substring(0, start) + replacement + text.substring(end);
+    setContent(valueWithReplacement);
+    
+    setShowImgInserter(false);
+    setInsertAlt('');
+    setInsertUrl('');
+    setImageError(null);
+
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + replacement.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 50);
+  };
+
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthor) {
@@ -176,7 +305,8 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
       tags: tags,
       readTime: getEstimatedReadTime(),
       authorEmail: 'saravanandhesingu1992@gmail.com',
-      views: editingPostId ? (posts.find(p => p.id === docId)?.views || 0) : 0
+      views: editingPostId ? (posts.find(p => p.id === docId)?.views || 0) : 0,
+      coverImage: coverImage || ''
     };
 
     try {
@@ -360,7 +490,79 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
                   Auto-calculated based on content word length.
                 </span>
               </div>
-            </div>            {/* Excerpt Summary */}
+            </div>
+
+            {/* Cover Image uploader section */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-900/10 space-y-2">
+              <label className="block text-xs font-semibold font-mono tracking-wider uppercase text-slate-400">
+                Article Cover Banner (Optional)
+              </label>
+
+              {coverImage ? (
+                <div className="relative group rounded-xl overflow-hidden aspect-video max-h-48 border border-slate-150 dark:border-slate-800 bg-black">
+                  <img 
+                    src={coverImage} 
+                    alt="Article cover" 
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCoverImage('')}
+                      className="rounded-full bg-red-600 hover:bg-red-700 text-white p-2.5 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-red-500/20 cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Remove Cover</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Upload box */}
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-555 rounded-xl p-6 bg-white dark:bg-[#0f172a] cursor-pointer transition-colors text-center group">
+                    {coverLoading ? (
+                      <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mb-2" />
+                    ) : (
+                      <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-500 transition-colors mb-2" />
+                    )}
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 block">
+                      {coverLoading ? 'Processing screenshot...' : 'Upload Screenshot/File'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-1 font-mono">
+                      Drag & Drop or click to browse
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleCoverImageChange} 
+                      disabled={coverLoading}
+                    />
+                  </label>
+
+                  {/* URL path paste */}
+                  <div className="flex flex-col justify-center gap-2 p-1">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Or paste high-res image URL</span>
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="https://images.unsplash.com/photo-..."
+                      value={coverImage}
+                      onChange={(e) => setCoverImage(e.target.value)}
+                      className="w-full text-xs rounded-xl border border-slate-200 p-2.5 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100 transition-all placeholder:text-slate-450"
+                    />
+                    <span className="text-[9px] text-slate-400 font-mono italic block leading-relaxed">
+                      Supports direct JPEG, PNG, WebP relative links or absolute URLs.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Excerpt Summary */}
             <div>
               <label className="block text-xs font-semibold font-mono tracking-wider uppercase text-slate-400 mb-1.5">
                 Teaser / Excerpt (Short Abstract)
@@ -456,7 +658,141 @@ export default function AdminPanel({ posts, isAuthor, onRefreshPosts, onSelectPo
                   >
                     <Code className="w-3.5 h-3.5" />
                   </button>
+                  <span className="h-4 w-px bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                  <button
+                    type="button"
+                    onClick={() => setShowImgInserter(!showImgInserter)}
+                    className={`p-1 px-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-xs flex items-center gap-1 cursor-pointer transition-colors ${showImgInserter ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 font-semibold' : 'text-slate-655 dark:text-slate-350'}`}
+                    title="Insert image/screenshot (Local machine or URL)"
+                  >
+                    <FileImage className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                    <span className="text-[10px] font-mono hidden sm:inline text-indigo-600 dark:text-indigo-455">Add Image</span>
+                  </button>
                 </div>
+
+                <AnimatePresence>
+                  {showImgInserter && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden border border-slate-200 dark:border-slate-805 rounded-2xl p-4 bg-slate-50 dark:bg-slate-950/50 space-y-3 animate-fade-in"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold font-sans text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4 text-indigo-505" />
+                          <span>Insert Article Media / Screenshot</span>
+                        </span>
+                        
+                        <div className="flex gap-1.5 p-0.5 bg-slate-205 dark:bg-slate-900 rounded-full text-[10px] font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setImageTab('upload')}
+                            className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${imageTab === 'upload' ? 'bg-white text-slate-900 shadow-sm dark:bg-[#0f172a] dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                          >
+                            Local File / Screenshot
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setImageTab('url')}
+                            className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${imageTab === 'url' ? 'bg-white text-slate-900 shadow-sm dark:bg-[#0f172a] dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                          >
+                            External URL Link
+                          </button>
+                        </div>
+                      </div>
+
+                      {imageError && (
+                        <div className="p-2.5 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs font-medium dark:bg-red-950/20 dark:border-red-900/30 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-500" />
+                          <span>{imageError}</span>
+                        </div>
+                      )}
+
+                      {imageTab === 'upload' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                          <label className="sm:col-span-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 rounded-xl p-4 bg-white dark:bg-[#0f172a] cursor-pointer transition-colors text-center">
+                            {inlineLoading ? (
+                              <Loader2 className="w-5 h-5 animate-spin text-indigo-505" />
+                            ) : (
+                              <Upload className="w-5 h-5 text-slate-400" />
+                            )}
+                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-350 mt-1 block">
+                              {inlineLoading ? 'Processing file...' : 'Choose Screenshot file'}
+                            </span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={handleInlineImageInsertChange} 
+                              disabled={inlineLoading}
+                            />
+                          </label>
+
+                          <div className="sm:col-span-2 space-y-2">
+                            <label className="block text-[10px] font-semibold font-mono tracking-wider uppercase text-slate-400">
+                              Image Alt Description / Title
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. App dashboard walkthrough"
+                              value={insertAlt}
+                              onChange={(e) => setInsertAlt(e.target.value)}
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                            />
+                            <p className="text-[9px] text-slate-400 font-sans leading-tight">
+                              Uploading automatically recompresses the image, making it highly compact for instant reads and safe storage.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                          <div className="sm:col-span-4 space-y-1">
+                            <label className="block text-[10px] font-semibold font-mono tracking-wider uppercase text-slate-400">
+                              Image Alt / Caption Text
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="App screen interface"
+                              value={insertAlt}
+                              onChange={(e) => setInsertAlt(e.target.value)}
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                            />
+                          </div>
+                          
+                          <div className="sm:col-span-6 space-y-1">
+                            <label className="block text-[10px] font-semibold font-mono tracking-wider uppercase text-slate-400">
+                              Image Address / URL Link
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://images.unsplash.com/..."
+                              value={insertUrl}
+                              onChange={(e) => setInsertUrl(e.target.value)}
+                              className="w-full text-xs rounded-xl border border-slate-200 p-2 outline-none focus:border-indigo-500/50 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-105"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!insertUrl.trim()) {
+                                  setImageError("Please enter a valid image URL link first.");
+                                  return;
+                                }
+                                insertIntoMarkdown(insertUrl.trim(), insertAlt.trim() || 'image');
+                              }}
+                              className="w-full text-center text-xs font-semibold rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white p-2.5 transition-colors cursor-pointer"
+                            >
+                              Insert Link
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <textarea
                   id="content-editor-textarea"

@@ -223,6 +223,23 @@ export default function BlogView({ post, onBack, isAuthor }: BlogViewProps) {
           )}
         </motion.header>
 
+        {/* Cover Image Banner */}
+        {post.coverImage && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="w-full aspect-video md:max-h-96 overflow-hidden rounded-3xl mb-8 border border-slate-150 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950 shadow-sm"
+          >
+            <img 
+              src={post.coverImage} 
+              alt={post.title} 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+        )}
+
         {/* Article Body Content */}
         <motion.article
           initial={{ opacity: 0 }}
