@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAuthor() {
+      return isSignedIn() && 
+             request.auth.token.email == 'saravanandhesingu1992@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidPost(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.slug is string && data.slug.size() <= 200 &&
+             data.content is string && data.content.size() <= 200000 &&
+             data.excerpt is string && data.excerpt.size() <= 1000 &&
+             data.published is bool &&
+             data.tags is list && data.tags.size() <= 20 &&
+             (data.tags.size() == 0 || data.tags[0] is string) &&
+             data.readTime is string && data.readTime.size() <= 50 &&
+             data.authorEmail == 'saravanandhesingu1992@gmail.com' &&
+             data.views is int && data.views >= 0;
+    }
+
+    match /posts/{postId} {
+      allow get: if existing().published == true || isAuthor();
+      
+      allow list: if (resource.data.published == true) || isAuthor();
+
+      allow create: if isAuthor() && 
+                    isValidId(postId) && 
+                    isValidPost(incoming()) &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+
+      allow update: if (isAuthor() && 
+                    isValidId(postId) && 
+                    isValidPost(incoming()) && 
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time) || 
+                    // Let readers update the view count, but ONLY allow incrementing 'views'
+                    (!isAuthor() && 
+                     incoming().diff(existing()).affectedKeys().hasOnly(['views']) && 
+                     incoming().views == existing().views + 1 &&
+                     incoming().title == existing().title &&
+                     incoming().slug == existing().slug &&
+                     incoming().content == existing().content &&
+                     incoming().excerpt == existing().excerpt &&
+                     incoming().published == existing().published &&
+                     incoming().createdAt == existing().createdAt &&
+                     incoming().tags == existing().tags &&
+                     incoming().readTime == existing().readTime &&
+                     incoming().authorEmail == existing().authorEmail);
+
+      allow delete: if isAuthor();
+    }
+  }
+}

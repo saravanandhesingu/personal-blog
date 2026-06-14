@@ -1,0 +1,439 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useEffect, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  collection, query, where, getDocs, onSnapshot, writeBatch, doc, serverTimestamp, orderBy 
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { BookOpen, Search, ArrowRight, Sparkles, Feather, ShieldCheck, Heart, Github, Star, PenTool, LayoutGrid } from 'lucide-react';
+
+import { Post, UserContextType, OperationType } from './types';
+import { db, auth, loginWithGoogle, logoutUser, testConnection, handleFirestoreError } from './firebase';
+import Header from './components/Header';
+import BlogCard from './components/BlogCard';
+import BlogView from './components/BlogView';
+import AdminPanel from './components/AdminPanel';
+
+// Author core email identifier
+const AUTHOR_EMAIL = 'saravanandhesingu1992@gmail.com';
+
+export default function App() {
+  // Navigation / Tab Views
+  const [activeView, setActiveView] = useState<'blog' | 'admin' | 'reader'>('blog');
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+
+  // Authentication states
+  const [user, setUser] = useState<any>(null);
+  const [isAuthor, setIsAuthor] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Articles collection states
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // 1. Initial Connection & Auth Listener
+  useEffect(() => {
+    // Audit Firestore connection on startup
+    testConnection();
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser && currentUser.email === AUTHOR_EMAIL && currentUser.emailVerified) {
+        setIsAuthor(true);
+      } else {
+        setIsAuthor(false);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Fetch/Stream Posts
+  useEffect(() => {
+    setPostsLoading(true);
+
+    // Formulate database path query based on identity permissions
+    const postsRef = collection(db, 'posts');
+    
+    // Non-authors can only list published posts. Author sees everything.
+    const baseQuery = isAuthor 
+      ? query(postsRef, orderBy('createdAt', 'desc'))
+      : query(postsRef, where('published', '==', true), orderBy('createdAt', 'desc'));
+
+    // Attach real-time snapshot listeners
+    const unsubscribeSnapshot = onSnapshot(
+      baseQuery,
+      (snapshot) => {
+        const loadedPosts: Post[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          loadedPosts.push({
+            id: docSnap.id,
+            ...data,
+          } as Post);
+        });
+
+        setPosts(loadedPosts);
+        setPostsLoading(false);
+
+        // Seed with outstanding starter posts if database is completely blank
+        if (loadedPosts.length === 0 && isAuthor) {
+          seedStarterPosts();
+        }
+      },
+      (error) => {
+        console.error("Failed to query posts collection snapshot:", error);
+        handleFirestoreError(error, OperationType.LIST, 'posts');
+      }
+    );
+
+    return () => unsubscribeSnapshot();
+  }, [isAuthor]);
+
+  // Seeding helper to create flawless starter content
+  const seedStarterPosts = async () => {
+    try {
+      const batch = writeBatch(db);
+      
+      const seedData = [
+        {
+          id: 'minimalist-aesthetics',
+          title: 'Crafting the Perfect Modern Reader Layout',
+          slug: 'minimalist-aesthetics',
+          excerpt: 'How generous negative space, meticulous typography choices, and smart dark modes work together to restore joy to digital longform writing.',
+          content: `## Rediscovering the Sanctuary of Longform Writing
+
+In an internet obsessed with distraction, infinite scrolls, and screen-cluttered telemetry trackers, the quiet art of deep reading has been pushed to the margins. Designing a personal blog shouldn't be about building a flashy amusement park; it should be about crafting a sanctuary.
+
+To build the "best" blog for readers, we must focus on three core disciplines:
+
+1. **The Silence of Negative Space**
+   Margins are not empty air; they are breathing gaps. By prioritizing wide white spaces and simple 3-column desktop framing, we allow the narrative to sit majestically without fighting visual noise.
+   
+2. **The Intention of Classy Font Pairings**
+   We pair the humanistic sans-serif **Inter** (for body columns) with the historical editorial serif **Playfair Display** (for headers). Playfair Display slows the gaze down, welcoming readers to meditate on the title, while Inter provides smooth legibility for extensive reading.
+
+3. **Fluid Interactive Contrast**
+   Our adaptive dark mode toggle acts as a physical dimmer switch. It shifts the entire workspace from crisp paper white to an oil-slack obsidian black, using subtle micro-transitions to soothe the optic nerve.
+
+### Building for Both Canvas Sizes
+An awesome interface must remain fully responsive:
+- **On Smartphones**: Touch offsets are scaled to a minimum layout boundary of 44 pixels. Slugs and technical indicators shrink to avoid wrapping, while the text size adjusts smoothly from the accessibility menu.
+- **On Desktops**: Expanded typographic grids stretch comfortably, allocating spacious margins and static summaries for elegant, high-impact reading.
+`,
+          published: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['design', 'typography', 'minimalism'],
+          readTime: '3 min read',
+          authorEmail: 'saravanandhesingu1992@gmail.com',
+          views: 42
+        },
+        {
+          id: 'serverless-fortress-firestore',
+          title: 'The Blueprint of a serverless fortress',
+          slug: 'serverless-fortress-firestore',
+          excerpt: 'Deep-dive into Attribute-Based Access Control, Zero-Trust firestore rules, and securing full-stack application APIs with absolute integrity.',
+          content: `## Designing Cloud Applications with Zero Leakage
+
+When transitioning to modern cloud-hosted platforms, securing private data fields and isolating administrative operations is the highest engineering mandate. In this post, we look at building absolute data fortresses using **Firestore Attribute-Based Access Control (ABAC)**.
+
+### The Problem: Client-Initiated Updates
+Traditional client SDKs are exceptionally powerful, but they expose full query paths to malicious actors if left unshielded. Setting rules like \`allow read, write: if isSignedIn()\` is a critical system vulnerability. 
+
+Instead, security must be built around strict transactional validators on the cloud.
+
+### The 3 Pillars of Hardened Verification
+Let's analyze some of the structural restrictions we deployed to protect this space:
+
+*   **Verified Credentials Check**: Rather than validating users based on simple login states, we verify their verified email domain synchronously:
+    \`\`\`javascript
+    function isAuthor() {
+      return request.auth != null && 
+             request.auth.token.email == 'saravanandhesingu1992@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+    \`\`\`
+*   **Immutability Invariants**: Fields like \`createdAt\` or \`authorEmail\` are marked as immutable immediately upon creation. Any update attempting to alter them is instantly blocked.
+*   **Atypical AffectedKeys Allocation**: To let users update the view metrics of an article without granting them full write access, we partition update validations:
+    \`\`\`javascript
+    allow update: if isAuthor() || 
+                  (!isAuthor() && incoming().diff(existing()).affectedKeys().hasOnly(['views']));
+    \`\`\`
+
+By ensuring that the database validates payload sizes, structures, and path variables securely and atomically in the cloud, we protect our users and infrastructure seamlessly.
+`,
+          published: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['security', 'database', 'cloud'],
+          readTime: '4 min read',
+          authorEmail: 'saravanandhesingu1992@gmail.com',
+          views: 112
+        },
+        {
+          id: 'restoring-human-craftsmanship',
+          title: 'Decelerating Tech: Restoring Craftmanship to Code',
+          slug: 'restoring-human-craftsmanship',
+          excerpt: 'Why standard over-engineered slimes are hurting software experiences, and the case for humble, high-fidelity development.',
+          content: `## A Manifesto for Elegant, Purposeful Software
+
+We live in an age of metric tracking overloads. Open any dashboard, widget, or digital app, and you are immediately bombarded by unrequested metrics: *Port 3000 connects, Core Memory status: 94% active, live trace pings, telemetry coordinates.*
+
+Why do we treat simple software tools like they are nuclear reactor control rooms?
+
+This is **Tech-Larping**—the habit of decorating interfaces with mock systems engineering noise to sound "extra smart." It adds zero value to end users and looks highly unprofessional.
+
+### The Craft of Deceleration
+Humble software uses human, objective labels:
+- We call a clock "Current Time", not a *Chronos Meter*.
+- We design layout interfaces using quiet grays, deep slates, and rich natural hues rather than aggressive neon terminal gradients.
+- We implement exact, requested scopes meticulously rather than trying to "enrich" simple tools with unrequested AI chat overlays, focus-noise generators, or telemetry panels.
+
+### Executing Pristine Form
+True craftsmanship isn't about adding volume; it is about absolute precision in what was requested.
+It is the alignment of margins, the fluidity of entering transitions, and the tactile snap of dark mode toggles. As developers, let us vow to replace noise with quiet, high-integrity software.
+`,
+          published: false, // Seeded as draft to let the author experience draft transitions!
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          tags: ['philosophy', 'minimalism', 'craft'],
+          readTime: '3 min read',
+          authorEmail: 'saravanandhesingu1992@gmail.com',
+          views: 11
+        }
+      ];
+
+      for (const item of seedData) {
+        batch.set(doc(db, 'posts', item.id), item);
+      }
+      await batch.commit();
+      console.log("Starter posts seeded successfully into your Firestore database!");
+    } catch (err) {
+      console.error("Failed to seed starter posts:", err);
+    }
+  };
+
+  // 3. Gather unique tags for filtering across published posts
+  const allTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    posts.forEach(post => {
+      if (post.tags) {
+        post.tags.forEach(t => tagsSet.add(t));
+      }
+    });
+    return Array.from(tagsSet);
+  }, [posts]);
+
+  // 4. Case-insensitive Search & Tag filtering
+  const filteredPosts = useMemo(() => {
+    return posts.filter(post => {
+      // Filter by tag if selected
+      if (selectedTag && (!post.tags || !post.tags.includes(selectedTag))) {
+        return false;
+      }
+
+      // Filter by keyword query
+      if (searchQuery.trim()) {
+        const queryNorm = searchQuery.toLowerCase();
+        const matchesTitle = post.title.toLowerCase().includes(queryNorm);
+        const matchesExcerpt = post.excerpt.toLowerCase().includes(queryNorm);
+        const matchesContent = post.content.toLowerCase().includes(queryNorm);
+        const matchesTags = post.tags && post.tags.some(tag => tag.toLowerCase().includes(queryNorm));
+        
+        return matchesTitle || matchesExcerpt || matchesContent || matchesTags;
+      }
+
+      return true;
+    });
+  }, [posts, searchQuery, selectedTag]);
+
+  // Helper auth callback block
+  const handleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      alert("Verification Login failed. Check your browser cookies or open in a new tab.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      setActiveView('blog');
+    } catch (err) {
+      console.error("Failed logout", err);
+    }
+  };
+
+  const contextWrapper: UserContextType = {
+    user,
+    loading: authLoading,
+    isAuthor,
+    login: handleLogin,
+    logout: handleLogout
+  };
+
+  const handleSelectPostToRead = (post: Post) => {
+    setSelectedPost(post);
+    setActiveView('reader');
+  };
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50 transition-colors flex flex-col justify-between">
+      
+      {/* Upper Content wrapper */}
+      <div>
+        <Header
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedTag={selectedTag}
+          setSelectedTag={setSelectedTag}
+          allTags={allTags}
+          userContext={contextWrapper}
+          activeView={activeView}
+          setActiveView={setActiveView}
+          onClearReaderPost={() => setSelectedPost(null)}
+        />
+
+        {/* Dynamic Canvas Routing */}
+        <main className="py-6 sm:py-10">
+          <AnimatePresence mode="wait">
+            
+            {/* VIEW A: LISTING BOARD */}
+            {activeView === 'blog' && (
+              <motion.div
+                key="blog-list"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="mx-auto max-w-5xl px-4 sm:px-6"
+              >
+                {/* Author Welcome Cover (Only displayed if no filter is selected) */}
+                {!selectedTag && !searchQuery && (
+                  <div className="mb-12 rounded-3xl bg-neutral-900 p-8 sm:p-12 text-white dark:bg-neutral-900/40 dark:border dark:border-neutral-800 relative overflow-hidden">
+                    <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 bg-gradient-to-tr from-amber-500 to-rose-500 pointer-events-none rounded-r-3xl" />
+                    <div className="max-w-2xl relative z-10">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 px-3 py-1 text-xs font-mono font-bold text-amber-400 capitalize mb-6 animate-pulse">
+                        <Feather className="w-3.5 h-3.5" />
+                        <span>Curated Journaling</span>
+                      </div>
+                      <h2 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight mb-4">
+                        Reflections on Art, Technology, & Software Integrity
+                      </h2>
+                      <p className="font-sans text-neutral-300 text-sm leading-relaxed max-w-xl">
+                        Welcome to my personal, high-fidelity blog. Here, I write about building secure architectures, robust data modeling, minimalism in web aesthetics, and decelerated craftsmanship.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Listing grid */}
+                {postsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-amber-500 dark:border-neutral-800 dark:border-t-amber-400" />
+                    <p className="font-mono text-xs text-neutral-400">Synchronizing timeline...</p>
+                  </div>
+                ) : filteredPosts.length === 0 ? (
+                  <div className="text-center py-20 rounded-3xl bg-white border border-neutral-100 dark:bg-neutral-900/30 dark:border-neutral-850 p-8">
+                    <Search className="w-10 h-10 text-neutral-300 dark:text-neutral-700 mx-auto mb-4" />
+                    <h3 className="text-sm font-bold font-serif text-neutral-800 dark:text-neutral-300">
+                      No matching records found
+                    </h3>
+                    <p className="text-xs font-sans text-neutral-400 mt-1 max-w-sm mx-auto">
+                      We couldn't locate any blog posts matching your search query. Try clearing your filters or testing other terms.
+                    </p>
+                    {(searchQuery || selectedTag) && (
+                      <button
+                        onClick={() => { setSearchQuery(''); setSelectedTag(null); }}
+                        className="mt-6 px-4 py-2 border border-neutral-200 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-600 rounded-full text-xs font-medium text-neutral-600 dark:text-neutral-300 transition-colors"
+                      >
+                        Reset Search View
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-stretch">
+                    {filteredPosts.map((post) => (
+                      <BlogCard
+                        key={post.id}
+                        post={post}
+                        onClick={handleSelectPostToRead}
+                        isAuthor={isAuthor}
+                      />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* VIEW B: DETAILED READER PAGE */}
+            {activeView === 'reader' && selectedPost && (
+              <motion.div
+                key="blog-reader"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <BlogView
+                  post={selectedPost}
+                  onBack={() => { setSelectedPost(null); setActiveView('blog'); }}
+                  isAuthor={isAuthor}
+                />
+              </motion.div>
+            )}
+
+            {/* VIEW C: ADMIN DASHBOARD (COMPOSE) */}
+            {activeView === 'admin' && (
+              <motion.div
+                key="admin-dashboard"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <AdminPanel
+                  posts={posts}
+                  isAuthor={isAuthor}
+                  onRefreshPosts={async () => {}} // snapshot triggers automatically!
+                  onSelectPostToRead={handleSelectPostToRead}
+                />
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* FOOTER */}
+      <footer id="app-footer" className="mt-20 py-8 border-t border-neutral-100 bg-white dark:border-neutral-900 dark:bg-neutral-950 transition-colors">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-400">
+          
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span>Verified Author Core Active — Zero-Trust ABAC Guarded</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span>© {new Date().getFullYear()} S. Dhesingu. Created with</span>
+            <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 animate-pulse" />
+            <span>for exquisite longform reading.</span>
+          </div>
+
+        </div>
+      </footer>
+
+    </div>
+  );
+}

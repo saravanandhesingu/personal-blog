@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Blog Post",
+      "description": "Represents an individual blog post written by the personal author.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The visual title of the blog post."
+        },
+        "slug": {
+          "type": "string",
+          "description": "The URL-safe string path identifier."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full body content of the blog post in Markdown format."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "A short summary of the blog post for listings."
+        },
+        "published": {
+          "type": "boolean",
+          "description": "Indicates whether the post is visible to any visitor or is a draft."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating when the post was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating when the post was last updated."
+        },
+        "tags": {
+          "type": "array",
+          "description": "List of keyword tags associated with the post."
+        },
+        "readTime": {
+          "type": "string",
+          "description": "An estimated reading duration, for example: '5 min read'."
+        },
+        "authorEmail": {
+          "type": "string",
+          "description": "The verified email of the single user writing this blog. Always 'saravanandhesingu1992@gmail.com'."
+        },
+        "views": {
+          "type": "integer",
+          "description": "The cumulative number of views this post has received."
+        }
+      },
+      "required": [
+        "title",
+        "slug",
+        "content",
+        "excerpt",
+        "published",
+        "createdAt",
+        "updatedAt",
+        "tags",
+        "readTime",
+        "authorEmail",
+        "views"
+      ]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of all blog posts"
+    }
+  }
+}

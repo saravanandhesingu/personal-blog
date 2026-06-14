@@ -1,0 +1,8 @@
+{
+  "name": "Saravanan Dhesingu Chronicle",
+  "description": "A high-fidelity minimalist single-author blog featuring secure cloud persistence, responsive typography, a custom tag generator, full dark mode, and integrated live search on both desktop and mobile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
