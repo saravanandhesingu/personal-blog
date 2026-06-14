@@ -235,6 +235,32 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
     return Array.from(tagsSet);
   }, [posts]);
 
+  // 3a. Deep linking & Browser popstate back button listener
+  useEffect(() => {
+    if (postsLoading || posts.length === 0) return;
+
+    const parseAndRouteDeepLink = () => {
+      const params = new URLSearchParams(window.location.search);
+      const postIdParam = params.get('post');
+      if (postIdParam) {
+        const linkedPost = posts.find(p => p.id === postIdParam);
+        if (linkedPost) {
+          setSelectedPost(linkedPost);
+          setActiveView('reader');
+          return;
+        }
+      }
+      setSelectedPost(null);
+      setActiveView('blog');
+    };
+
+    // Route on initial loads once posts have streamed
+    parseAndRouteDeepLink();
+
+    window.addEventListener('popstate', parseAndRouteDeepLink);
+    return () => window.removeEventListener('popstate', parseAndRouteDeepLink);
+  }, [posts, postsLoading]);
+
   // 4. Case-insensitive Search & Tag filtering
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
@@ -292,6 +318,13 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
   const handleSelectPostToRead = (post: Post) => {
     setSelectedPost(post);
     setActiveView('reader');
+    window.history.pushState({ postId: post.id }, '', `?post=${post.id}`);
+  };
+
+  const handleGoBackToBlog = () => {
+    setSelectedPost(null);
+    setActiveView('blog');
+    window.history.pushState(null, '', window.location.pathname);
   };
 
   return (
@@ -308,7 +341,7 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
           userContext={contextWrapper}
           activeView={activeView}
           setActiveView={setActiveView}
-          onClearReaderPost={() => setSelectedPost(null)}
+          onClearReaderPost={handleGoBackToBlog}
         />
 
         {/* Dynamic Canvas Routing */}
@@ -394,7 +427,7 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
               >
                 <BlogView
                   post={selectedPost}
-                  onBack={() => { setSelectedPost(null); setActiveView('blog'); }}
+                  onBack={handleGoBackToBlog}
                   isAuthor={isAuthor}
                 />
               </motion.div>
