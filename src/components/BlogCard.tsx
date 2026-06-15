@@ -78,7 +78,7 @@ export default function BlogCard({ post, onClick, isAuthor }: BlogCardProps) {
           <h3 className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-slate-900 group-hover:text-indigo-500 dark:text-slate-100 dark:group-hover:text-indigo-400 leading-tight transition-colors">
             {post.title}
           </h3>
-          <ArrowUpRight className="w-5 h-5 text-slate-350 group-hover:text-indigo-500 dark:text-slate-700 dark:group-hover:text-indigo-400 shrink-0 mt-1 transition-colors" />
+          <ArrowUpRight className="w-5 h-5 text-slate-355 group-hover:text-indigo-500 dark:text-slate-700 dark:group-hover:text-indigo-400 shrink-0 mt-1 transition-colors" />
         </div>
 
         {/* Post Teaser Excerpt */}

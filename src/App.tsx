@@ -465,7 +465,7 @@ It is the alignment of margins, the fluidity of entering transitions, and the ta
           </div>
 
           <div className="flex items-center gap-1">
-            <span>© {new Date().getFullYear()} S. Dhesingu. Created with</span>
+            <span>© {new Date().getFullYear()} Saravanan Dhesingu. Created with</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 animate-pulse" />
             <span>for exquisite longform reading.</span>
           </div>
